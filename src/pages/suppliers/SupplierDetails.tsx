@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Mail, Phone, MapPin, Calendar, DollarSign, Clock, 
   Star, Edit, ChevronLeft, ChevronRight, Award, Truck
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 
 const SupplierDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [supplier, setSupplier] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,7 +22,7 @@ const SupplierDetails: React.FC = () => {
   const fetchSupplier = () => {
     try {
       setIsLoading(true);
-      const foundSupplier = mockSuppliers.find(s => s.id === parseInt(id));
+      const foundSupplier = mockSuppliers.find(s => s.id === (id ? parseInt(id) : -1));
       if (!foundSupplier) throw new Error('Supplier not found');
       setSupplier(foundSupplier);
     } catch (error) {
@@ -58,6 +59,19 @@ const SupplierDetails: React.FC = () => {
     return `${Math.round(days / 30)} months`;
   };
 
+  // Find next and previous suppliers
+  const supplierIndex = mockSuppliers.findIndex(s => s.id === (supplier ? parseInt(id) : -1));
+  const nextSupplier = supplierIndex < mockSuppliers.length - 1 ? mockSuppliers[supplierIndex + 1] : null;
+  const prevSupplier = supplierIndex > 0 ? mockSuppliers[supplierIndex - 1] : null;
+
+  const handleNavigation = (direction: 'next' | 'prev') => {
+    if (direction === 'next' && nextSupplier) {
+      navigate(`/dashboard/suppliers/${nextSupplier.id}`);
+    } else if (direction === 'prev' && prevSupplier) {
+      navigate(`/dashboard/suppliers/${prevSupplier.id}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -77,17 +91,27 @@ const SupplierDetails: React.FC = () => {
           <Link to="/dashboard/suppliers" className="p-1 rounded-full hover:bg-gray-100">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-800">{supplier.name}</h1>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium border ${getQualityColor(supplier.quality)}`}>
+          <h1 className="text-2xl font-bold text-gray-800">{supplier && supplier.name}</h1>
+          <div className={`px-3 py-1 rounded-full text-sm font-medium border ${supplier && getQualityColor(supplier.quality)}`}>
             Quality: {supplier.quality}/100
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-          <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Previous supplier">
+          <button
+            onClick={() => handleNavigation('prev')}
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 disabled:text-gray-300"
+            disabled={!prevSupplier}
+            title="Previous supplier"
+          >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Next supplier">
+          <button
+            onClick={() => handleNavigation('next')}
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 disabled:text-gray-300"
+            disabled={!nextSupplier}
+            title="Next supplier"
+          >
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>

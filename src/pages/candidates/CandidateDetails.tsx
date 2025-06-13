@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, Mail, Phone, MapPin, Calendar, Briefcase,  
-  Award, Star, Edit, Download, UserX,  
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft, Mail, Phone, MapPin, Calendar, Briefcase,
+  Award, Star, Edit, Download, UserX,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import CommunicationTimeline from '../../components/communications/CommunicationTimeline';
@@ -48,25 +48,54 @@ interface Candidate {
 const CandidateDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getCandidateById, candidates } = useData();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
+  const [candidate, setCandidate] = useState<Candidate | undefined>(undefined);
 
-  const candidate = id ? getCandidateById(id) as Candidate | undefined : undefined;
+  useEffect(() => {
+    if (id) {
+      const foundCandidate = getCandidateById(id);
+      if (foundCandidate) {
+        setCandidate(foundCandidate);
+      }
+    }
+  }, [id, getCandidateById]);
+
+  // Find next and previous candidates
+  const candidateIndex = candidates.findIndex(c => c.id === (candidate?.id || 0));
+  const nextCandidate = candidateIndex < candidates.length - 1 ? candidates[candidateIndex + 1] : null;
+  const prevCandidate = candidateIndex > 0 ? candidates[candidateIndex - 1] : null;
 
   if (!candidate) {
     return <div className="text-center py-16">Candidate not found</div>;
   }
 
-  const nextCandidate = candidates.find(c => c.id > candidate.id) || null;
-  const prevCandidate = [...candidates].reverse().find(c => c.id < candidate.id) || null;
+  const handleStatusChange = (newStatus: string) => {
+    const updatedCandidates = candidates.map(c =>
+      c.id === candidate.id ? { ...c, status: newStatus } : c
+    );
+    // Update the mock data in the context or globally if needed
+    // Assuming useData manages the global state, update it here
+    // For now, we'll update the local candidates array
+    Object.assign(candidates, updatedCandidates);
+    setCandidate(prev => prev ? { ...prev, status: newStatus } : prev);
+  };
 
-  // Helper to generate star rating
   const renderStarRating = (rating: number) => {
     return Array(5).fill(0).map((_, i) => (
-      <Star 
-        key={i} 
-        className={`h-4 w-4 ${i < rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} 
+      <Star
+        key={i}
+        className={`h-4 w-4 ${i < rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`}
       />
     ));
+  };
+
+  const handleNavigation = (direction: 'next' | 'prev') => {
+    if (direction === 'next' && nextCandidate) {
+      navigate(`/dashboard/candidates/${nextCandidate.id}`);
+    } else if (direction === 'prev' && prevCandidate) {
+      navigate(`/dashboard/candidates/${prevCandidate.id}`);
+    }
   };
 
   return (
@@ -77,31 +106,40 @@ const CandidateDetails: React.FC = () => {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-bold text-gray-800">{candidate.name}</h1>
-          <StatusBadge status={candidate.status} />
+          <div className="flex items-center gap-2">
+            <StatusBadge status={candidate.status} />
+            <select
+              value={candidate.status}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="Applied">Applied</option>
+              <option value="Interview">Interview</option>
+              <option value="Mirroring">Mirroring</option>
+              <option value="Hired">Hired</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Previous candidate">
-            {prevCandidate ? (
-              <Link to={`/dashboard/candidates/${prevCandidate.id}`}>
-                <ChevronLeft className="h-5 w-5" />
-              </Link>
-            ) : (
-              <ChevronLeft className="h-5 w-5 text-gray-300" />
-            )}
+          <button
+            onClick={() => handleNavigation('prev')}
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 disabled:text-gray-300"
+            disabled={!prevCandidate}
+          >
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Next candidate">
-            {nextCandidate ? (
-              <Link to={`/dashboard/candidates/${nextCandidate.id}`}>
-                <ChevronRight className="h-5 w-5" />
-              </Link>
-            ) : (
-              <ChevronRight className="h-5 w-5 text-gray-300" />
-            )}
+          <button
+            onClick={() => handleNavigation('next')}
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 disabled:text-gray-300"
+            disabled={!nextCandidate}
+          >
+            <ChevronRight className="h-5 w-5" />
           </button>
         </div>
       </div>
-      
+
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar */}
         <div className="md:w-1/3 space-y-6">
@@ -119,7 +157,7 @@ const CandidateDetails: React.FC = () => {
               <p className="text-gray-600">{candidate.position}</p>
               <p className="text-gray-500 text-sm">{candidate.department}</p>
             </div>
-            
+
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <Mail className="h-5 w-5 text-gray-500 mt-0.5" />
@@ -128,7 +166,6 @@ const CandidateDetails: React.FC = () => {
                   <p className="text-gray-800">{candidate.email}</p>
                 </div>
               </div>
-              
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
@@ -136,7 +173,6 @@ const CandidateDetails: React.FC = () => {
                   <p className="text-gray-800">{candidate.phone}</p>
                 </div>
               </div>
-              
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
@@ -144,7 +180,6 @@ const CandidateDetails: React.FC = () => {
                   <p className="text-gray-800">{candidate.location}</p>
                 </div>
               </div>
-              
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
@@ -152,7 +187,6 @@ const CandidateDetails: React.FC = () => {
                   <p className="text-gray-800">{candidate.appliedDate}</p>
                 </div>
               </div>
-              
               <div className="flex items-start gap-3">
                 <Briefcase className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
@@ -160,7 +194,6 @@ const CandidateDetails: React.FC = () => {
                   <p className="text-gray-800">{candidate.experienceLevel}</p>
                 </div>
               </div>
-              
               <div className="flex items-start gap-3">
                 <Award className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
@@ -169,7 +202,7 @@ const CandidateDetails: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-6 pt-6 border-t">
               <h3 className="text-sm font-semibold mb-3">Skills</h3>
               <div className="flex flex-wrap gap-2">
@@ -180,7 +213,7 @@ const CandidateDetails: React.FC = () => {
                 ))}
               </div>
             </div>
-            
+
             <div className="mt-6 pt-6 border-t flex flex-col gap-2">
               <button className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
                 <Mail className="h-4 w-4" />
@@ -201,55 +234,27 @@ const CandidateDetails: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Main content */}
         <div className="md:w-2/3 space-y-6">
           <div className="bg-white rounded-lg shadow">
             <div className="border-b">
               <nav className="flex">
-                <button
-                  className={`px-4 py-3 font-medium text-sm relative ${
-                    activeTab === 'profile' 
-                      ? 'text-blue-600 border-b-2 border-blue-600' 
+                {['profile', 'communications', 'notes', 'documents'].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`px-4 py-3 font-medium text-sm relative ${activeTab === tab
+                      ? 'text-blue-600 border-b-2 border-blue-600'
                       : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  onClick={() => setActiveTab('profile')}
-                >
-                  Profile
-                </button>
-                <button
-                  className={`px-4 py-3 font-medium text-sm relative ${
-                    activeTab === 'communications' 
-                      ? 'text-blue-600 border-b-2 border-blue-600' 
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  onClick={() => setActiveTab('communications')}
-                >
-                  Communications
-                </button>
-                <button
-                  className={`px-4 py-3 font-medium text-sm relative ${
-                    activeTab === 'notes' 
-                      ? 'text-blue-600 border-b-2 border-blue-600' 
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  onClick={() => setActiveTab('notes')}
-                >
-                  Notes
-                </button>
-                <button
-                  className={`px-4 py-3 font-medium text-sm relative ${
-                    activeTab === 'documents' 
-                      ? 'text-blue-600 border-b-2 border-blue-600' 
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  onClick={() => setActiveTab('documents')}
-                >
-                  Documents
-                </button>
+                      }`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
               </nav>
             </div>
-            
+
             <div className="p-6">
               {activeTab === 'profile' && (
                 <div className="space-y-6">
@@ -257,7 +262,7 @@ const CandidateDetails: React.FC = () => {
                     <h3 className="text-lg font-semibold mb-3">About</h3>
                     <p className="text-gray-700">{candidate.about || "No information provided."}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Work Experience</h3>
                     {candidate.experience?.map((exp, index) => (
@@ -271,7 +276,7 @@ const CandidateDetails: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Education</h3>
                     {candidate.education?.map((edu, index) => (
@@ -284,7 +289,7 @@ const CandidateDetails: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Recruitment Process</h3>
                     <div className="relative">
@@ -298,10 +303,10 @@ const CandidateDetails: React.FC = () => {
                           <div>
                             <h4 className="font-medium">{step.name}</h4>
                             <p className="text-sm text-gray-500">
-                              {step.completed 
-                                ? `Completed on ${step.date}` 
-                                : step.scheduled 
-                                  ? `Scheduled for ${step.date}` 
+                              {step.completed
+                                ? `Completed on ${step.date}`
+                                : step.scheduled
+                                  ? `Scheduled for ${step.date}`
                                   : 'Not scheduled'}
                             </p>
                           </div>
@@ -311,7 +316,7 @@ const CandidateDetails: React.FC = () => {
                   </div>
                 </div>
               )}
-              
+
               {activeTab === 'communications' && id && <CommunicationTimeline candidateId={id} />}
               {activeTab === 'notes' && id && <CandidateNotes candidateId={id} />}
               {activeTab === 'documents' && id && <CandidateDocuments candidateId={id} />}
